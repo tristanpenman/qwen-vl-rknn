@@ -7,7 +7,7 @@
   + ~~Docker images and helper scripts for native and Android builds~~
   + ~~GitHub Actions for ShellCheck~~
   + ~~Strip symbols from release builds~~
-  + Add a CI job that runs the native build end-to-end
+  + ~~Add a CI job that runs the native build end-to-end~~
   + Publish prebuilt binaries from tagged releases
 
 - Vision encoder
@@ -67,9 +67,10 @@
 
 - R&D
   + Investigate changes required to support Qwen3-VL (**in progress**)
+  + Investigate changes required to support Llama 3.2 Vision models (**in progress**)
   + Design RAII wrappers for RKNN primitives
 
-- Cleanup
-  + Fix CI artifact paths and `build-native.sh`'s undefined `-DVLM_RKNN_ENABLE_RKNN` flag
+- ~~Cleanup~~
+  + ~~Fix CI artifact paths and `build-native.sh`'s undefined `-DVLM_RKNN_ENABLE_RKNN` flag~~
   + ~~Decide whether the unconditional vision warm-up decode in `main.cc` should be silenced or removed~~
   + ~~Map `--cores 1` to a single core~~
