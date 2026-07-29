@@ -451,8 +451,18 @@ int Session::initVisionEncoder()
 {
     memset(&encoder_, 0, sizeof(encoder_));
 
-    // Initialize vision encoder.
+    // Initialize vision encoder
     rknn_context ctx = 0;
+
+    // Define a cleanup lambda to ensure resources are released on failure
+    const auto cleanupOnFailure = [&]() {
+        cleanupVisionEncoder();
+        if (ctx != 0) {
+            rknn_destroy(ctx);
+            ctx = 0;
+        }
+    };
+
     if (!config_.visionEncoderPath.has_value() || config_.visionEncoderPath->empty()) {
         LOG(ERROR) << "Vision encoder path is required for " << modelFamilyName(config_.modelFamily);
         return -1;
@@ -476,11 +486,12 @@ int Session::initVisionEncoder()
             ret = rknn_set_core_mask(ctx, RKNN_NPU_CORE_0_1_2);
         } else {
             LOG(ERROR) << "Invalid RKNN core count: " << coreNum;
-            rknn_destroy(ctx);
+            cleanupOnFailure();
             return -1;
         }
         if (ret != 0) {
             LOG(ERROR) << "Failed to set RKNN core mask, error=" << rknn_utils::rknnErrorMessage(ret);
+            cleanupOnFailure();
             return -1;
         }
     }
@@ -489,12 +500,14 @@ int Session::initVisionEncoder()
     ret = rknn_query(ctx, RKNN_QUERY_IN_OUT_NUM, &encoder_.ioNum, sizeof(encoder_.ioNum));
     if (ret != RKNN_SUCC) {
         LOG(ERROR) << "Failed to query RKNN input/output count, error=" << rknn_utils::rknnErrorMessage(ret);
+        cleanupOnFailure();
         return -1;
     }
 
     if (encoder_.ioNum.n_input <= 0 || encoder_.ioNum.n_output <= 0) {
         LOG(ERROR) << "Invalid RKNN I/O count: n_input=" << encoder_.ioNum.n_input
                    << " n_output=" << encoder_.ioNum.n_output;
+        cleanupOnFailure();
         return -1;
     }
     if (Logger::verbose()) {
@@ -507,6 +520,7 @@ int Session::initVisionEncoder()
         sizeof(rknn_tensor_attr)));
     if (encoder_.inputAttrs == nullptr) {
         LOG(ERROR) << "Failed to allocate input tensor attribute buffers";
+        cleanupOnFailure();
         return -1;
     }
 
@@ -515,6 +529,7 @@ int Session::initVisionEncoder()
         sizeof(rknn_tensor_attr)));
     if (encoder_.outputAttrs == nullptr) {
         LOG(ERROR) << "Failed to allocate output tensor attribute buffers";
+        cleanupOnFailure();
         return -1;
     }
 
@@ -524,6 +539,7 @@ int Session::initVisionEncoder()
         if (ret != RKNN_SUCC) {
             LOG(ERROR) << "Failed to query RKNN input attr for index " << i
                        << ", error=" << rknn_utils::rknnErrorMessage(ret);
+            cleanupOnFailure();
             return -1;
         }
         if (Logger::verbose()) {
@@ -537,6 +553,7 @@ int Session::initVisionEncoder()
         if (ret != RKNN_SUCC) {
             LOG(ERROR) << "Failed to query RKNN output attr for index " << i
                        << ", error=" << rknn_utils::rknnErrorMessage(ret);
+            cleanupOnFailure();
             return -1;
         }
         if (Logger::verbose()) {
@@ -549,6 +566,7 @@ int Session::initVisionEncoder()
             encoder_.modelImageToken,
             encoder_.modelEmbedSize)) {
         LOG(ERROR) << "Could not infer image token and embedding dimensions from first RKNN output tensor";
+        cleanupOnFailure();
         return -1;
     }
 
@@ -572,6 +590,7 @@ int Session::initVisionEncoder()
 
     // Save context for later use.
     encoder_.rknnContext = ctx;
+    ctx = 0;
 
     return 0;
 }
