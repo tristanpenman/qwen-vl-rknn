@@ -797,8 +797,22 @@ int Session::encode(void* imgData, float* outResult)
         if (outputs[0].buf == nullptr) {
             LOG(ERROR) << "RKNN output buffer is null for index 0";
             ret = -1;
+        } else if (encoder_.modelImageToken <= 0 || encoder_.modelEmbedSize <= 0) {
+            LOG(ERROR) << "Invalid inferred RKNN output shape: tokens=" << encoder_.modelImageToken
+                       << " embedSize=" << encoder_.modelEmbedSize;
+            ret = -1;
+        } else {
+            const std::size_t expectedBytes = static_cast<std::size_t>(encoder_.modelImageToken)
+                * static_cast<std::size_t>(encoder_.modelEmbedSize)
+                * sizeof(float);
+            if (outputs[0].size > expectedBytes) {
+                LOG(ERROR) << "RKNN output buffer is larger than the expected embedding size: output_bytes="
+                           << outputs[0].size
+                           << " expected_bytes=" << expectedBytes;
+            ret = -1;
         } else {
             memcpy(outResult, outputs[0].buf, outputs[0].size);
+            }
         }
     } else {
         for (std::uint32_t i = 0; i < encoder_.ioNum.n_output; ++i) {
