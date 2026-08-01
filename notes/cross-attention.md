@@ -152,6 +152,19 @@ The prompt would use Mllama's tokenizer, chat template, and image-token semantic
 
 Mask and position behavior would need to be verified carefully against Rockchip's custom-conversion contract. Mllama's logical cross-attention mask depends on where images become visible to text tokens, while the RKLLM structure exposes only one-dimensional encoder mask and position arrays.
 
+## Vision Integration Strategy
+
+Assume that we declare a new cross-attention integration strategy rather than pretending that every vision model produces replacement embeddings. A possible direction is:
+
+```cpp
+enum class VisionIntegration
+{
+    kNone,
+    kTokenEmbeddings,
+    kCrossAttentionKv,
+};
+```
+
 ## Verdict
 
 It is possible in principle with this RKLLM version. The decoder loop being hidden is not the blocker; `rkllm_set_cross_attn_params` is explicitly the interface into that loop.
