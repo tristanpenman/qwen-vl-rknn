@@ -33,6 +33,7 @@ struct ModelProfile
     const char* imgStart;
     const char* imgEnd;
     const char* imgContent;
+    int expectedImageTokens;
     ImagePreprocessProfile imagePreprocess;
 };
 
@@ -69,6 +70,7 @@ const ModelProfile& modelProfileFor(ModelFamily family)
         "<|vision_start|>",
         "<|vision_end|>",
         "<|image_pad|>",
+        0,
         kQwenVlImagePreprocess,
     };
 
@@ -82,6 +84,7 @@ const ModelProfile& modelProfileFor(ModelFamily family)
         "<|vision_start|>",
         "<|vision_end|>",
         "<|image_pad|>",
+        0,
         kQwenVlImagePreprocess,
     };
 
@@ -95,6 +98,7 @@ const ModelProfile& modelProfileFor(ModelFamily family)
         "<|vision_start|>",
         "<|vision_end|>",
         "<|image_pad|>",
+        0,
         kQwenVlImagePreprocess,
     };
 
@@ -107,6 +111,7 @@ const ModelProfile& modelProfileFor(ModelFamily family)
         "",
         "",
         "",
+        0,
         kLlamaImagePreprocess,
     };
 
@@ -132,7 +137,38 @@ const ModelProfile& modelProfileFor(ModelFamily family)
         "<|vision_start|>",
         "<|vision_end|>",
         "<|image_pad|>",
+        0,
         kSmolvlm2ImagePreprocess,
+    };
+
+    // Gemma 3's processor produces a fixed 896x896 image. Rescaling and
+    // normalization are expected to be baked into the RKNN artifact so the
+    // existing uint8 NHWC input path remains usable.
+    static constexpr ImagePreprocessProfile kGemma3ImagePreprocess {
+        ResizeMode::kStretch,
+        true,
+        false,
+        0.0f,
+        0.0f,
+        0.0f,
+        {0.0f, 0.0f, 0.0f},
+        {1.0f, 1.0f, 1.0f},
+    };
+
+    // base_domain_id and chat-template handling must be verified against the
+    // converted RKLLM artifact. Keep the runtime default domain and do not
+    // install an application-side template in this initial integration.
+    static constexpr ModelProfile kGemma3 {
+        true,
+        true,
+        0,
+        false,
+        "<image>",
+        "<start_of_image>",
+        "<end_of_image>",
+        "<image_soft_token>",
+        256,
+        kGemma3ImagePreprocess,
     };
 
     switch (family) {
@@ -146,6 +182,8 @@ const ModelProfile& modelProfileFor(ModelFamily family)
         return kLlama;
     case ModelFamily::kSmolVLM2:
         return kSmolvlm2;
+    case ModelFamily::kGemma3:
+        return kGemma3;
     }
 
     return kQwen2Vl;
@@ -223,6 +261,11 @@ bool parseModelFamily(std::string_view value, ModelFamily& family)
 
     if (value == "smolvlm2" || value == "smol-vlm2" || value == "smol_vlm2") {
         family = ModelFamily::kSmolVLM2;
+        return true;
+    }
+
+    if (value == "gemma3" || value == "gemma-3" || value == "gemma_3") {
+        family = ModelFamily::kGemma3;
         return true;
     }
 
@@ -361,6 +404,8 @@ const char* modelFamilyName(ModelFamily family)
         return "llama";
     case ModelFamily::kSmolVLM2:
         return "smolvlm2";
+    case ModelFamily::kGemma3:
+        return "gemma3";
     }
 
     return "qwen2-vl";
@@ -570,6 +615,24 @@ int Session::initVisionEncoder()
         return -1;
     }
 
+    const auto& profile = modelProfileFor(config_.modelFamily);
+    if (profile.expectedImageTokens > 0) {
+        if (encoder_.ioNum.n_input != 1 || encoder_.ioNum.n_output != 1) {
+            LOG(ERROR) << modelFamilyName(config_.modelFamily)
+                       << " requires exactly one RKNN input and one output; got inputs="
+                       << encoder_.ioNum.n_input << " outputs=" << encoder_.ioNum.n_output;
+            cleanupOnFailure();
+            return -1;
+        }
+        if (encoder_.modelImageToken != profile.expectedImageTokens) {
+            LOG(ERROR) << modelFamilyName(config_.modelFamily) << " requires "
+                       << profile.expectedImageTokens << " image tokens; RKNN output has "
+                       << encoder_.modelImageToken;
+            cleanupOnFailure();
+            return -1;
+        }
+    }
+
     if (encoder_.inputAttrs[0].fmt == RKNN_TENSOR_NCHW) {
         encoder_.modelChannel = encoder_.inputAttrs[0].dims[1];
         encoder_.modelHeight = encoder_.inputAttrs[0].dims[2];
@@ -578,6 +641,14 @@ int Session::initVisionEncoder()
         encoder_.modelHeight = encoder_.inputAttrs[0].dims[1];
         encoder_.modelWidth = encoder_.inputAttrs[0].dims[2];
         encoder_.modelChannel = encoder_.inputAttrs[0].dims[3];
+    }
+    if (config_.modelFamily == ModelFamily::kGemma3 &&
+        (encoder_.modelWidth != 896 || encoder_.modelHeight != 896 || encoder_.modelChannel != 3)) {
+        LOG(ERROR) << "Gemma 3 RKNN input must be 896x896 RGB; got "
+                   << encoder_.modelWidth << "x" << encoder_.modelHeight
+                   << " channels=" << encoder_.modelChannel;
+        cleanupOnFailure();
+        return -1;
     }
     if (Logger::verbose()) {
         LOG(VERBOSE) << "RKNN vision input shape: height=" << encoder_.modelHeight

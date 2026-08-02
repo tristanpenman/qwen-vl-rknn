@@ -52,6 +52,12 @@ int main()
     expect(family == vlm_rknn::ModelFamily::kLlama, "llama should map to Llama family");
     expect(vlm_rknn::parseModelFamily("smol-vlm2", family), "smol-vlm2 alias should parse");
     expect(family == vlm_rknn::ModelFamily::kSmolVLM2, "smol-vlm2 should map to SmolVLM2 family");
+    expect(vlm_rknn::parseModelFamily("gemma3", family), "gemma3 should parse");
+    expect(family == vlm_rknn::ModelFamily::kGemma3, "gemma3 should map to Gemma 3 family");
+    expect(vlm_rknn::parseModelFamily("gemma-3", family), "gemma-3 alias should parse");
+    expect(vlm_rknn::parseModelFamily("gemma_3", family), "gemma_3 alias should parse");
+    expect(std::string(vlm_rknn::modelFamilyName(family)) == "gemma3",
+           "Gemma 3 should have a canonical family name");
     expect(!vlm_rknn::parseModelFamily("not-a-family", family), "unknown family should not parse");
 
     expect(!vlm_rknn::modelFamilyUsesVisionEncoder(vlm_rknn::ModelFamily::kLlama),
@@ -64,6 +70,12 @@ int main()
            "SmolVLM2 should require a vision encoder");
     expect(vlm_rknn::modelFamilySupportsMultimodal(vlm_rknn::ModelFamily::kSmolVLM2),
            "SmolVLM2 should be registered as multimodal");
+    expect(vlm_rknn::modelFamilyUsesVisionEncoder(vlm_rknn::ModelFamily::kGemma3),
+           "Gemma 3 should require a vision encoder");
+    expect(vlm_rknn::modelFamilySupportsMultimodal(vlm_rknn::ModelFamily::kGemma3),
+           "Gemma 3 should be registered as multimodal");
+    expect(std::string(vlm_rknn::modelFamilyImagePlaceholder(vlm_rknn::ModelFamily::kGemma3)) == "<image>",
+           "Gemma 3 should expose the repository image placeholder");
     expect(std::string(vlm_rknn::modelFamilyImagePlaceholder(vlm_rknn::ModelFamily::kQwenVL2)) == "<image>",
            "Qwen2-VL image placeholder should be exposed");
     expect(std::string(vlm_rknn::modelFamilyImagePlaceholder(vlm_rknn::ModelFamily::kLlama)).empty(),
@@ -83,6 +95,14 @@ int main()
         vlm_rknn::modelFamilyImagePreprocessProfile(vlm_rknn::ModelFamily::kSmolVLM2);
     expect(smolPreprocess.resizeMode == vlm_rknn::ResizeMode::kPadToSquare,
            "SmolVLM2 profile should have an explicit resize mode");
+
+    const auto& gemmaPreprocess =
+        vlm_rknn::modelFamilyImagePreprocessProfile(vlm_rknn::ModelFamily::kGemma3);
+    expect(gemmaPreprocess.resizeMode == vlm_rknn::ResizeMode::kStretch,
+           "Gemma 3 should resize to the fixed encoder dimensions");
+    expect(gemmaPreprocess.rgb, "Gemma 3 should request RGB encoder input");
+    expect(!gemmaPreprocess.normalizeInHost,
+           "Gemma 3 normalization should be included in the RKNN artifact");
 
     cv::Mat bgrPixel(1, 1, CV_8UC3, cv::Scalar(10, 20, 30));
     cv::Mat preprocessedPixel;
@@ -123,6 +143,25 @@ int main()
            "llama should not treat image placeholders as multimodal prompts");
 
     // INI-based model configuration.
+    {
+        const std::string ini =
+            "[gemma3-4b]\n"
+            "model_family=gemma3\n"
+            "vision=/models/gemma3/gemma3-vision-projector.rknn\n"
+            "llm=/models/gemma3/gemma3-4b-it.rkllm\n";
+        std::vector<vlm_rknn::NamedModelConfig> configs;
+        std::string error;
+        expect(vlm_rknn::parseModelConfigsFromIni(ini, configs, error),
+               "Gemma 3 INI should parse: " + error);
+        expect(configs.size() == 1 && configs[0].config.modelFamily == vlm_rknn::ModelFamily::kGemma3,
+               "Gemma 3 INI should retain its model family");
+        vlm_rknn::Session gemmaSession(configs[0].config);
+        expect(gemmaSession.describe().find("model_family=gemma3") != std::string::npos,
+               "Gemma 3 session description should name the family");
+        expect(gemmaSession.promptContainsImage("<image>Describe this."),
+               "Gemma 3 should detect its image placeholder");
+    }
+
     {
         const std::string ini =
             "[qwen]\n"
@@ -168,6 +207,9 @@ int main()
         expect(!vlm_rknn::parseModelConfigsFromIni(
                    "[m]\nmodel_family=qwen2-vl\nvision=/v.rknn\n", configs, error),
                "missing llm should fail");
+        expect(!vlm_rknn::parseModelConfigsFromIni(
+                   "[m]\nmodel_family=gemma3\nllm=/m.rkllm\n", configs, error),
+               "Gemma 3 without a vision model should fail");
         expect(!vlm_rknn::parseModelConfigsFromIni(
                    "[m]\nllm=/m.rkllm\n", configs, error),
                "vision model without vision encoder should fail");

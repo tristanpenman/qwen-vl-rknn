@@ -40,6 +40,7 @@ enum class ModelFamily
     kQwenVL3,
     kLlama,
     kSmolVLM2,
+    kGemma3,
 };
 
 enum class ResizeMode

@@ -9,6 +9,7 @@ Currently supports the following models:
 
 Others are in development:
 
+* Gemma3
 * Llama
 * Qwen-VL2.5
 * Qwen-VL3
@@ -31,6 +32,7 @@ Others are in development:
   * [Test Frontend](#test-frontend)
   * [APK Installation](#apk-installation)
 * [Models](#models)
+  * [Gemma 3](#gemma-3)
   * [Qwen2-VL-2b](#qwen2-vl-2b)
   * [Qwen2-VL-7b](#qwen2-vl-7b)
   * [SmolVLM2-256M](#smolvlm2-256m)
@@ -168,16 +170,21 @@ max_new_tokens=300
 [chat]
 model_family=llama
 llm=/models/llama/Llama-3.2.rkllm
+
+[gemma3-4b]
+model_family=gemma3
+vision=/models/gemma3/gemma3-vision-projector.rknn
+llm=/models/gemma3/gemma3-4b-it.rkllm
 ```
 
-| Key               | Required              | Description                                                       |
-|-------------------|-----------------------|-------------------------------------------------------------------|
-| `model_family`    | no (default qwen2-vl) | One of `qwen2-vl`, `qwen2.5-vl`, `qwen3-vl`, `llama`, `smolvlm2`. |
-| `vision`          | vision models only    | Path to the vision encoder (`.rknn`).                             |
-| `llm`             | yes                   | Path to the language model (`.rkllm`).                            |
-| `max_new_tokens`  | no (default 128)      | Maximum tokens to generate.                                       |
-| `max_context_len` | no (default 2048)     | Maximum context length.                                           |
-| `cores`           | no                    | Number of NPU cores to use (1-3).                                 |
+| Key               | Required              | Description                                            |
+|-------------------|-----------------------|--------------------------------------------------------|
+| `model_family`    | no (default qwen2-vl) | One of the model families listed in the Models section |
+| `vision`          | vision models only    | Path to the vision encoder (`.rknn`)                   |
+| `llm`             | yes                   | Path to the language model (`.rkllm`)                  |
+| `max_new_tokens`  | no (default 128)      | Maximum tokens to generate                             |
+| `max_context_len` | no (default 2048)     | Maximum context length                                 |
+| `cores`           | no                    | Number of NPU cores to use (1-3)                       |
 
 The default model is loaded eagerly when the server starts. Other models are loaded on demand the first time they are requested. At most `--max-loaded-models` models are kept resident in NPU memory. When a new model must be loaded and the cache is full, the least recently used model is evicted.
 
@@ -337,6 +344,25 @@ adb shell am start -n  "com.tristanpenman.vlmrknn/.MainActivity"
 ```
 
 ## Models
+
+This project currently supports the following model families:
+
+- `gemma3`
+- `llama`
+- `qwen2-vl`
+- `qwen2.5-vl`
+- `qwen3-vl`
+- `smolvlm2`
+
+The requirements for each model are covered in more detail below.
+
+### Gemma 3
+
+Support for Gemma is currently a work in progress. Initial support includes `google/gemma-3-4b-it` with one image and pan-and-scan disabled.
+
+The vision RKNN model must include both the SigLIP tower and Gemma multimodal projector. It should accept an 896 x 896 `uint8` RGB image with model-side normalisation, and emit a single `[1, 256, hidden_size]` embedding.
+
+The paired RKLLM model must be converted from the same checkpoint. Artifact conversion and device validation are discussed in [`notes/gemma3.md`](./notes/gemma3.md).
 
 ### Qwen2-VL-2B
 
