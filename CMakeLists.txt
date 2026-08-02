@@ -140,15 +140,12 @@ add_library(vlm_rknn_core STATIC
 
 add_library(vlm-rknn::core ALIAS vlm_rknn_core)
 
-target_include_directories(vlm_rknn_core PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/cpp/src
-)
-
 target_compile_definitions(vlm_rknn_core PUBLIC
     VLM_RKNN_TARGET="${VLM_RKNN_TARGET}"
 )
 
 target_include_directories(vlm_rknn_core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/cpp/src
     ${RKNN_INCLUDE_DIR}
     ${RKLLM_INCLUDE_DIR}
     ${VLM_RKNN_OPENCV_INCLUDE_DIRS}
