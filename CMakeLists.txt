@@ -98,11 +98,44 @@ if(VLM_RKNN_ENABLE_OPENCV)
 endif()
 
 # -----------------------------------------------------------------------------
+# JSON for Modern C++
+# -----------------------------------------------------------------------------
+
+set(JSON_BuildTests OFF CACHE INTERNAL "")
+FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.12.0
+    GIT_SHALLOW TRUE
+    GIT_PROGRESS TRUE
+)
+FetchContent_MakeAvailable(nlohmann_json)
+
+# -----------------------------------------------------------------------------
+# SentencePiece
+# -----------------------------------------------------------------------------
+
+set(SPM_ENABLE_SHARED OFF CACHE BOOL INTERNAL)
+set(SPM_ENABLE_TCMALLOC OFF CACHE BOOL INTERNAL)
+FetchContent_Declare(
+    sentencepiece
+    GIT_REPOSITORY https://github.com/google/sentencepiece
+    GIT_TAG 11051e3b73b3a6222a52acd720e39805dc7545ab
+    EXCLUDE_FROM_ALL
+)
+FetchContent_MakeAvailable(sentencepiece)
+set(LIBSENTENCEPIECE_INCLUDES ${sentencepiece_SOURCE_DIR}/src)
+
+# Suppress warning in SentencePiece builds using GCC.
+target_compile_options(sentencepiece-static PRIVATE
+    $<$<CXX_COMPILER_ID:GNU>:-Wno-stringop-overflow>
+)
+
+# -----------------------------------------------------------------------------
 # HTTP server dependencies
 # -----------------------------------------------------------------------------
 
 if(VLM_RKNN_ENABLE_SERVER)
-    set(JSON_BuildTests OFF CACHE INTERNAL "")
     set(HTTPLIB_USE_OPENSSL_IF_AVAILABLE OFF CACHE BOOL "Disable cpp-httplib OpenSSL support" FORCE)
     set(HTTPLIB_USE_ZLIB_IF_AVAILABLE OFF CACHE BOOL "Disable cpp-httplib zlib support" FORCE)
     set(HTTPLIB_USE_BROTLI_IF_AVAILABLE OFF CACHE BOOL "Disable cpp-httplib Brotli support" FORCE)
@@ -116,15 +149,7 @@ if(VLM_RKNN_ENABLE_SERVER)
         GIT_PROGRESS TRUE
     )
 
-    FetchContent_Declare(
-        nlohmann_json
-        GIT_REPOSITORY https://github.com/nlohmann/json.git
-        GIT_TAG v3.12.0
-        GIT_SHALLOW TRUE
-        GIT_PROGRESS TRUE
-    )
-
-    FetchContent_MakeAvailable(httplib nlohmann_json)
+    FetchContent_MakeAvailable(httplib)
 endif()
 
 # -----------------------------------------------------------------------------
@@ -148,12 +173,15 @@ target_include_directories(vlm_rknn_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp/src
     ${RKNN_INCLUDE_DIR}
     ${RKLLM_INCLUDE_DIR}
+    ${LIBSENTENCEPIECE_INCLUDES}
     ${VLM_RKNN_OPENCV_INCLUDE_DIRS}
 )
 
 target_link_libraries(vlm_rknn_core PUBLIC
     ${RKNN_RUNTIME_LIB}
     ${RKLLM_RUNTIME_LIB}
+    nlohmann_json::nlohmann_json
+    sentencepiece
     ${VLM_RKNN_OPENCV_TARGETS}
 )
 
