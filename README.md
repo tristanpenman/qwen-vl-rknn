@@ -22,6 +22,7 @@ Others are in development:
 * [Project Structure](#project-structure)
   * [Layout](#layout)
   * [Dependencies](#dependencies)
+  * [RKNN / RKLLM](#rknn-rkllm)
 * [Linux CLI](#linux-cli)
   * [CMake Configuration](#cmake-configuration)
 * [HTTP Server](#http-server)
@@ -37,6 +38,7 @@ Others are in development:
   * [Qwen2-VL-7b](#qwen2-vl-7b)
   * [SmolVLM2-256M](#smolvlm2-256m)
   * [SmolVLM2-500M](#smolvlm2-500m)
+* [Scripts](#scripts)
 * [Contributing](#contributing)
 * [License](#license)
 
@@ -83,6 +85,12 @@ This project targets Rockchip Linux and Android devices based on the Rockchip RK
 ### Dependencies
 
 OpenCV is being integrated as a fetched third-party dependency for image loading and preprocessing. The initial CMake integration builds a small OpenCV module set (`core,imgproc,imgcodecs`) by default.
+
+### RKNN / RKLLM
+
+The version of RKLLM vendored in this project is 1.2.3 (build: 77daf2e2 2025-11-22).
+
+The version of RKNN is 2.3.3b0.
 
 ## Linux CLI
 
