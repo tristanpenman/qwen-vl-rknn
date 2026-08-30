@@ -153,23 +153,23 @@ if(VLM_RKNN_ENABLE_SERVER)
 endif()
 
 # -----------------------------------------------------------------------------
-# vlm_rknn_core
+# vlm-rknn-core
 # -----------------------------------------------------------------------------
 
-add_library(vlm_rknn_core STATIC
+add_library(vlm-rknn-core STATIC
     cpp/src/ini.cc
     cpp/src/logger.cc
     cpp/src/rknn_utils.cc
     cpp/src/vlm_rknn.cc
 )
 
-add_library(vlm-rknn::core ALIAS vlm_rknn_core)
+add_library(vlm-rknn::core ALIAS vlm-rknn-core)
 
-target_compile_definitions(vlm_rknn_core PUBLIC
+target_compile_definitions(vlm-rknn-core PUBLIC
     VLM_RKNN_TARGET="${VLM_RKNN_TARGET}"
 )
 
-target_include_directories(vlm_rknn_core PUBLIC
+target_include_directories(vlm-rknn-core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp/src
     ${RKNN_INCLUDE_DIR}
     ${RKLLM_INCLUDE_DIR}
@@ -177,7 +177,7 @@ target_include_directories(vlm_rknn_core PUBLIC
     ${VLM_RKNN_OPENCV_INCLUDE_DIRS}
 )
 
-target_link_libraries(vlm_rknn_core PUBLIC
+target_link_libraries(vlm-rknn-core PUBLIC
     ${RKNN_RUNTIME_LIB}
     ${RKLLM_RUNTIME_LIB}
     nlohmann_json::nlohmann_json
