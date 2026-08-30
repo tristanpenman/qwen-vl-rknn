@@ -35,6 +35,7 @@ void printUsage(const char* program)
               << " [-v|--verbose] [--cores <num_cores>]"
               << " [--model-family <qwen2-vl|qwen2.5-vl|qwen3-vl|llama|smolvlm2|gemma3>]"
               << " [--max-new-tokens <tokens>] [--max-context-len <tokens>]"
+              << " [--tokenizer-model <tokenizer.model>]"
               << " --llm <language_model_path>"
               << " [--vision <vision_encoder_path> --image <image_path>]"
               << " [--prompt <prompt>]\n";
@@ -79,6 +80,7 @@ int main(int argc, char** argv)
     std::optional<vlm_rknn::ModelFamily> modelFamily;
     std::optional<std::string> visionEncoderPath;
     std::optional<std::string> languageModelPath;
+    std::optional<std::string> tokenizerModelPath;
     std::optional<std::string> imagePath;
     std::optional<std::string> prompt;
     for (int i = 1; i < argc; i++) {
@@ -158,6 +160,14 @@ int main(int argc, char** argv)
             languageModelPath = value;
             continue;
         }
+        if (strcmp(argv[i], "--tokenizer-model") == 0) {
+            const char* value = nullptr;
+            if (!getOptionValue(argc, argv, i, "--tokenizer-model", value)) {
+                return -1;
+            }
+            tokenizerModelPath = value;
+            continue;
+        }
         if (strcmp(argv[i], "--image") == 0) {
             const char* value = nullptr;
             if (!getOptionValue(argc, argv, i, "--image", value)) {
@@ -182,6 +192,11 @@ int main(int argc, char** argv)
 
     if (!languageModelPath.has_value() || languageModelPath->empty()) {
         std::cout << "Missing required --llm <language_model_path> argument\n";
+        printUsage(argv[0]);
+        return 1;
+    }
+    if (tokenizerModelPath.has_value() && tokenizerModelPath->empty()) {
+        std::cout << "--tokenizer-model requires a non-empty path\n";
         printUsage(argv[0]);
         return 1;
     }
@@ -228,6 +243,11 @@ int main(int argc, char** argv)
     }
     if (maxContextLen.has_value()) {
         config.maxContextLen = maxContextLen.value();
+    }
+
+    if (tokenizerModelPath.has_value()) {
+        // TODO: Load the SentencePiece tokenizer from tokenizer.model
+        // and wire it into vlm_rknn::Session.
     }
 
     vlm_rknn::Session session(config);
