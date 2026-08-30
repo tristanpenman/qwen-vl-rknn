@@ -47,6 +47,7 @@ load_model_config() {
       HF_REPO=""
       LLM_FILE="gemma3-4b-it.rkllm"
       VISION_FILE="gemma3-vision-projector.rknn"
+      TOKENIZER_FILE="tokenizer.model"
       CACHE_NAME="gemma3-4b"
       DOWNLOAD_SOURCE="cache"
       ;;
@@ -162,6 +163,13 @@ else
   echo "To enable image input, add it at: ${MODEL_CACHE}/${VISION_FILE}"
 fi
 
+if [[ -n "${TOKENIZER_FILE:-}" && -s "${MODEL_CACHE}/${TOKENIZER_FILE}" ]]; then
+  USE_TOKENIZER=1
+  echo "Tokenizer model: ${MODEL_CACHE}/${TOKENIZER_FILE}"
+else
+  USE_TOKENIZER=0
+fi
+
 if [[ "${USE_VISION}" -eq 1 ]]; then
   if [[ ! -f "${IMAGE_PATH}" ]]; then
     echo "Error: image not found: ${IMAGE_PATH}" >&2
@@ -258,6 +266,9 @@ sync_model "${MODEL_CACHE}/${LLM_FILE}" "${REMOTE_MODEL_DIR}/${LLM_FILE}"
 if [[ "${USE_VISION}" -eq 1 ]]; then
   sync_model "${MODEL_CACHE}/${VISION_FILE}" "${REMOTE_MODEL_DIR}/${VISION_FILE}"
 fi
+if [[ "${USE_TOKENIZER}" -eq 1 ]]; then
+  sync_model "${MODEL_CACHE}/${TOKENIZER_FILE}" "${REMOTE_MODEL_DIR}/${TOKENIZER_FILE}"
+fi
 
 "${ADB[@]}" shell chmod 755 "${REMOTE_DIR}/vlm-rknn"
 
@@ -274,4 +285,8 @@ VISION_ARGS=""
 if [[ "${USE_VISION}" -eq 1 ]]; then
   VISION_ARGS=" --vision ${REMOTE_MODEL_DIR}/${VISION_FILE} --image ${REMOTE_IMAGE}"
 fi
-"${ADB[@]}" shell -t -t "cd ${REMOTE_DIR} && LD_LIBRARY_PATH=${REMOTE_LIB_DIR} ./vlm-rknn --model-family ${MODEL_FAMILY} --llm ${REMOTE_MODEL_DIR}/${LLM_FILE}${VISION_ARGS} 2>&1"
+TOKENIZER_ARGS=""
+if [[ "${USE_TOKENIZER}" -eq 1 ]]; then
+  TOKENIZER_ARGS=" --tokenizer-model ${REMOTE_MODEL_DIR}/${TOKENIZER_FILE}"
+fi
+"${ADB[@]}" shell -t -t "cd ${REMOTE_DIR} && LD_LIBRARY_PATH=${REMOTE_LIB_DIR} ./vlm-rknn --model-family ${MODEL_FAMILY} --llm ${REMOTE_MODEL_DIR}/${LLM_FILE}${VISION_ARGS}${TOKENIZER_ARGS} 2>&1"
