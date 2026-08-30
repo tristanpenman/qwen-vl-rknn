@@ -402,6 +402,28 @@ You can download compatible SmolVLM2-500M models from Hugging Face:
 
 Fetch the `smolvlm2_500m_llm_w8a8_rk3588.rkllm` and `smolvlm2_500m_vision_fp16_rk3588.rknn` model files.
 
+## Scripts
+
+### `build-android.sh`
+
+Builds the command-line tools for Android with the Android NDK. It can run the build directly with a locally installed NDK or inside the project's Docker Compose Android build environment.
+
+### `build-native.sh`
+
+Cross-compiles the native Linux command-line tools for AArch64 Rockchip devices. It also supports running the build through the project's Docker Compose native build environment.
+
+### `run-android-cli.sh`
+
+Downloads or locates the selected model artifacts, pushes the Android CLI, runtime libraries, model files, and input image to a connected device, and starts an interactive inference session over ADB.
+
+### `run-android-server.sh`
+
+Downloads and deploys the Qwen2-VL and SmolVLM2 model artifacts together with the Android server and runtime libraries, then starts the multi-model HTTP server on a connected device.
+
+### `send-query.py`
+
+Sends a text or image query to a running `vlm-rknn-server` instance. Image data is validated, base64-encoded, and included directly in the JSON request.
+
 ## Contributing
 
 Contributions are welcome. I will make an effort to review any bona fide contributions.
