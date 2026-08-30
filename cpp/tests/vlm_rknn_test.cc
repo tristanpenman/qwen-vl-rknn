@@ -39,6 +39,8 @@ int main()
     expect(
         session.config().languageModelPath == "/models/qwen-vl/language_model.rkllm",
         "language model path should be retained");
+    expect(!session.config().tokenizerModelPath.has_value(),
+           "tokenizer model path should be optional");
     expect(session.describe().find("VLM RKNN session") != std::string::npos,
            "description should contain project name");
     expect(session.describe().find("target=") != std::string::npos, "description should contain target device");
@@ -46,6 +48,12 @@ int main()
            "description should contain model family");
     expect(session.describe().find("requires_vision_encoder=yes") != std::string::npos,
            "description should contain vision encoder requirement");
+
+    vlm_rknn::ModelConfig invalidTokenizerConfig;
+    invalidTokenizerConfig.tokenizerModelPath = "/nonexistent/tokenizer.model";
+    vlm_rknn::Session invalidTokenizerSession(invalidTokenizerConfig);
+    expect(invalidTokenizerSession.init() == -1,
+           "session initialization should fail when the tokenizer model cannot be loaded");
 
     vlm_rknn::ModelFamily family;
     expect(vlm_rknn::parseModelFamily("llama", family), "llama should parse");

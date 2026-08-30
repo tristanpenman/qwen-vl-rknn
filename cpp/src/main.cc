@@ -246,8 +246,7 @@ int main(int argc, char** argv)
     }
 
     if (tokenizerModelPath.has_value()) {
-        // TODO: Load the SentencePiece tokenizer from tokenizer.model
-        // and wire it into vlm_rknn::Session.
+        config.tokenizerModelPath = *tokenizerModelPath;
     }
 
     vlm_rknn::Session session(config);

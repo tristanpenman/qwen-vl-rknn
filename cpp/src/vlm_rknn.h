@@ -10,6 +10,7 @@
 #include <opencv2/core.hpp>
 #include <rknn_api.h>
 #include <rkllm.h>
+#include <sentencepiece_processor.h>
 
 namespace vlm_rknn {
 
@@ -68,6 +69,7 @@ struct ModelConfig
 
     std::optional<std::string> visionEncoderPath;
     std::string languageModelPath;
+    std::optional<std::string> tokenizerModelPath;
 
     int maxNewTokens = 128;
     int maxContextLen = 2048;
@@ -154,6 +156,7 @@ private:
     static int callback(RKLLMResult* result, void* userdata, LLMCallState state);
 
     ModelConfig config_;
+    sentencepiece::SentencePieceProcessor tokenizer_;
     VisionEncoder encoder_;
     TextDecoder decoder_;
 

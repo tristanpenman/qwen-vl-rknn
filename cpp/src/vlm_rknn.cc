@@ -744,6 +744,15 @@ Session::~Session()
 
 int Session::init()
 {
+    if (config_.tokenizerModelPath.has_value()) {
+        const auto status = tokenizer_.Load(*config_.tokenizerModelPath);
+        if (!status.ok()) {
+            LOG(ERROR) << "Failed to load SentencePiece tokenizer model: "
+                       << status.ToString();
+            return -1;
+        }
+    }
+
     if (initTextDecoder() != 0) {
         return -1;
     }
@@ -790,6 +799,10 @@ std::string Session::describe() const
                    : "<unset>");
     stream << " language_model_path="
            << (config_.languageModelPath.empty() ? "<unset>" : config_.languageModelPath);
+    stream << " tokenizer_model_path="
+           << (config_.tokenizerModelPath.has_value() && !config_.tokenizerModelPath->empty()
+                   ? *config_.tokenizerModelPath
+                   : "<unset>");
     return stream.str();
 }
 
