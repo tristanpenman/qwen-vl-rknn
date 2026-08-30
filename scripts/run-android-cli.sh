@@ -96,15 +96,13 @@ if [[ ! -x "${CLI_BIN}" ]]; then
   exit 1
 fi
 
-if [[ ! -f "${IMAGE_PATH}" ]]; then
-  echo "Error: image not found: ${IMAGE_PATH}" >&2
-  exit 1
-fi
-
 echo "CLI binary: ${CLI_BIN}"
-echo "Image: ${IMAGE_PATH}"
 
-for tool in adb curl; do
+REQUIRED_TOOLS=(adb)
+if [[ "${DOWNLOAD_SOURCE}" == "huggingface" ]]; then
+  REQUIRED_TOOLS+=(curl)
+fi
+for tool in "${REQUIRED_TOOLS[@]}"; do
   if ! command -v "${tool}" >/dev/null 2>&1; then
     echo "Error: required tool '${tool}' is not installed or not on PATH." >&2
     exit 1
@@ -148,12 +146,28 @@ download() {
 if [[ "${DOWNLOAD_SOURCE}" == "huggingface" ]]; then
   download "${LLM_FILE}"
   download "${VISION_FILE}"
-elif [[ ! -s "${MODEL_CACHE}/${LLM_FILE}" || ! -s "${MODEL_CACHE}/${VISION_FILE}" ]]; then
+  USE_VISION=1
+elif [[ ! -s "${MODEL_CACHE}/${LLM_FILE}" ]]; then
   echo "Error: Model artifacts are not available for automatic download." >&2
-  echo "Add the converted model files to the cache directory at:" >&2
-  echo "  LLM:    ${MODEL_CACHE}/${LLM_FILE}" >&2
+  echo "Add the required language model to the cache directory at:" >&2
+  echo "  LLM: ${MODEL_CACHE}/${LLM_FILE}" >&2
+  echo "The optional vision projector may be added at:" >&2
   echo "  Vision: ${MODEL_CACHE}/${VISION_FILE}" >&2
   exit 1
+elif [[ -n "${VISION_FILE}" && -s "${MODEL_CACHE}/${VISION_FILE}" ]]; then
+  USE_VISION=1
+else
+  USE_VISION=0
+  echo "Optional vision projector not found; starting a text-only session."
+  echo "To enable image input, add it at: ${MODEL_CACHE}/${VISION_FILE}"
+fi
+
+if [[ "${USE_VISION}" -eq 1 ]]; then
+  if [[ ! -f "${IMAGE_PATH}" ]]; then
+    echo "Error: image not found: ${IMAGE_PATH}" >&2
+    exit 1
+  fi
+  echo "Image: ${IMAGE_PATH}"
 fi
 
 # -----------------------------------------------------------------------------
@@ -231,7 +245,9 @@ echo "=== Push files to device ==="
 "${ADB[@]}" shell mkdir -p "${REMOTE_MODEL_DIR}" "${REMOTE_LIB_DIR}"
 
 "${ADB[@]}" push "${CLI_BIN}" "${REMOTE_DIR}/vlm-rknn"
-"${ADB[@]}" push "${IMAGE_PATH}" "${REMOTE_IMAGE}"
+if [[ "${USE_VISION}" -eq 1 ]]; then
+  "${ADB[@]}" push "${IMAGE_PATH}" "${REMOTE_IMAGE}"
+fi
 
 "${ADB[@]}" push "${ROOT_DIR}/thirdparty/rknpu2/lib-android/arm64-v8a/librknnrt.so" "${REMOTE_LIB_DIR}/"
 "${ADB[@]}" push "${ROOT_DIR}/thirdparty/rkllm/lib-android/arm64-v8a/librkllmrt.so" "${REMOTE_LIB_DIR}/"
@@ -239,7 +255,9 @@ echo "=== Push files to device ==="
 
 # Model files are large; only push when missing or changed on the device.
 sync_model "${MODEL_CACHE}/${LLM_FILE}" "${REMOTE_MODEL_DIR}/${LLM_FILE}"
-sync_model "${MODEL_CACHE}/${VISION_FILE}" "${REMOTE_MODEL_DIR}/${VISION_FILE}"
+if [[ "${USE_VISION}" -eq 1 ]]; then
+  sync_model "${MODEL_CACHE}/${VISION_FILE}" "${REMOTE_MODEL_DIR}/${VISION_FILE}"
+fi
 
 "${ADB[@]}" shell chmod 755 "${REMOTE_DIR}/vlm-rknn"
 
@@ -252,4 +270,8 @@ echo "=== Start interactive CLI on ${SERIAL} ==="
 # Omitting --prompt starts vlm-rknn's interactive REPL. Force a pseudo-terminal
 # (-t -t) so prompts and generated output stream live. Merge stderr into stdout
 # so both are shown.
-"${ADB[@]}" shell -t -t "cd ${REMOTE_DIR} && LD_LIBRARY_PATH=${REMOTE_LIB_DIR} ./vlm-rknn --model-family ${MODEL_FAMILY} --vision ${REMOTE_MODEL_DIR}/${VISION_FILE} --llm ${REMOTE_MODEL_DIR}/${LLM_FILE} --image ${REMOTE_IMAGE} 2>&1"
+VISION_ARGS=""
+if [[ "${USE_VISION}" -eq 1 ]]; then
+  VISION_ARGS=" --vision ${REMOTE_MODEL_DIR}/${VISION_FILE} --image ${REMOTE_IMAGE}"
+fi
+"${ADB[@]}" shell -t -t "cd ${REMOTE_DIR} && LD_LIBRARY_PATH=${REMOTE_LIB_DIR} ./vlm-rknn --model-family ${MODEL_FAMILY} --llm ${REMOTE_MODEL_DIR}/${LLM_FILE}${VISION_ARGS} 2>&1"

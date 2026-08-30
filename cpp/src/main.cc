@@ -39,7 +39,8 @@ void printUsage(const char* program)
               << " --llm <language_model_path>"
               << " [--vision <vision_encoder_path> --image <image_path>]"
               << " [--prompt <prompt>]\n";
-    std::cout << "--vision and --image are required for vision model families and unsupported for llama.\n";
+    std::cout << "--vision and --image must be provided together for multimodal inference; "
+              << "omit both for text-only inference.\n";
     std::cout << "If --prompt is omitted, an interactive REPL is started.\n";
 }
 
@@ -206,29 +207,27 @@ int main(int argc, char** argv)
     if (modelFamily.has_value()) {
         config.modelFamily = modelFamily.value();
     }
-    const bool usesVisionEncoder = vlm_rknn::modelFamilyUsesVisionEncoder(config.modelFamily);
-    if (usesVisionEncoder) {
-        if (!visionEncoderPath.has_value() || visionEncoderPath->empty()) {
-            std::cout << "Missing required --vision <vision_encoder_path> argument for "
+    const bool supportsVisionEncoder = vlm_rknn::modelFamilyUsesVisionEncoder(config.modelFamily);
+    const bool hasVisionEncoder = visionEncoderPath.has_value() && !visionEncoderPath->empty();
+    const bool hasImage = imagePath.has_value() && !imagePath->empty();
+    if (supportsVisionEncoder) {
+        if (hasVisionEncoder != hasImage) {
+            std::cout << "--vision and --image must be provided together for "
                       << vlm_rknn::modelFamilyName(config.modelFamily) << "\n";
             printUsage(argv[0]);
             return 1;
         }
-        if (!imagePath.has_value() || imagePath->empty()) {
-            std::cout << "Missing required --image <image_path> argument for "
-                      << vlm_rknn::modelFamilyName(config.modelFamily) << "\n";
-            printUsage(argv[0]);
-            return 1;
+        if (hasVisionEncoder) {
+            config.visionEncoderPath = *visionEncoderPath;
         }
-        config.visionEncoderPath = *visionEncoderPath;
     } else {
-        if (visionEncoderPath.has_value() && !visionEncoderPath->empty()) {
+        if (hasVisionEncoder) {
             std::cout << "--vision is not supported for "
                       << vlm_rknn::modelFamilyName(config.modelFamily) << "\n";
             printUsage(argv[0]);
             return 1;
         }
-        if (imagePath.has_value() && !imagePath->empty()) {
+        if (hasImage) {
             std::cout << "--image is not supported for "
                       << vlm_rknn::modelFamilyName(config.modelFamily) << "\n";
             printUsage(argv[0]);
@@ -264,7 +263,7 @@ int main(int argc, char** argv)
     LOG(INFO) << "Session initialized successfully.";
     LOG(INFO) << session.describe();
 
-    if (!usesVisionEncoder) {
+    if (!hasVisionEncoder) {
         int ret = 0;
         if (prompt.has_value()) {
             LOG(INFO) << "Running decoder with prompt: " << *prompt;

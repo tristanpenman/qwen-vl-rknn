@@ -757,7 +757,7 @@ int Session::init()
         return -1;
     }
 
-    if (modelFamilyUsesVisionEncoder(config_.modelFamily)) {
+    if (config_.visionEncoderPath.has_value() && !config_.visionEncoderPath->empty()) {
         if (initVisionEncoder() != 0) {
             return -1;
         }
@@ -777,7 +777,7 @@ bool Session::isReady() const noexcept
         return false;
     }
 
-    if (modelFamilyUsesVisionEncoder(config_.modelFamily)) {
+    if (config_.visionEncoderPath.has_value() && !config_.visionEncoderPath->empty()) {
         return encoder_.rknnContext != 0;
     }
 
