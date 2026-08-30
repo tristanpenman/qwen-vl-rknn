@@ -4,44 +4,84 @@ set -euo pipefail
 # Push the Android build of vlm-rknn to a device and start its interactive
 # prompt.
 #
-# The Qwen2-VL model files come from:
-#   https://huggingface.co/3ib0n/Qwen2-VL-2B-rkllm
-#
 # Usage:
-#   ./scripts/run-android-cli.sh <device-ip> [remote-path]
+#   ./scripts/run-android-cli.sh <device-ip> <model> [remote-path]
 #
 # Arguments:
 #   device-ip    IP address (or host) of the target device, as used by `adb connect`.
+#   model        Model to run: qwen2-vl-2b, qwen2-vl-7b, or gemma3-4b.
 #   remote-path  Directory to push files to on the device (default /data/local/tmp).
 #
 # Environment:
-#   MODEL_SIZE   Qwen2-VL model to download and run: 2b (default) or 7b.
 #   IMAGE_PATH   Image to use for interactive prompts (default data/cell.png).
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 BUILD_DIR="${BUILD_DIR:-${ROOT_DIR}/build-android}"
 CACHE_DIR="${ROOT_DIR}/.cache"
-MODEL_SIZE="${MODEL_SIZE:-2b}"
 IMAGE_PATH="${IMAGE_PATH:-${ROOT_DIR}/data/cell.png}"
 
-DEVICE_IP="${1:-}"
-REMOTE_DIR="${2:-/data/local/tmp}"
+# Set the download and runtime parameters for a supported model. Gemma3
+# artifacts are cache-only because compatible converted files are not currently
+# available from Hugging Face.
+load_model_config() {
+  case "$1" in
+    qwen2-vl-2b)
+      MODEL_FAMILY="qwen2-vl"
+      HF_REPO="3ib0n/Qwen2-VL-2B-rkllm"
+      LLM_FILE="Qwen2-VL-2B-Instruct.rkllm"
+      VISION_FILE="qwen2_vl_2b_vision_rk3588.rknn"
+      CACHE_NAME="qwen2-vl-2b"
+      DOWNLOAD_SOURCE="huggingface"
+      ;;
+    qwen2-vl-7b)
+      MODEL_FAMILY="qwen2-vl"
+      HF_REPO="3ib0n/Qwen2-VL-7B-rkllm"
+      LLM_FILE="Qwen2-VL-7B-Instruct.rkllm"
+      VISION_FILE="qwen2_vl_7b_vision_rk3588.rknn"
+      CACHE_NAME="qwen2-vl-7b"
+      DOWNLOAD_SOURCE="huggingface"
+      ;;
+    gemma3-4b)
+      MODEL_FAMILY="gemma3"
+      HF_REPO=""
+      LLM_FILE="gemma3-4b-it.rkllm"
+      VISION_FILE="gemma3-vision-projector.rknn"
+      CACHE_NAME="gemma3-4b"
+      DOWNLOAD_SOURCE="cache"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
 
-if [[ -z "${DEVICE_IP}" ]]; then
+DEVICE_IP="${1:-}"
+MODEL="${2:-}"
+REMOTE_DIR="${3:-/data/local/tmp}"
+
+if [[ -z "${DEVICE_IP}" || -z "${MODEL}" ]]; then
   cat <<USAGE
-Usage: $0 <device-ip> [remote-path]
+Usage: $0 <device-ip> <model> [remote-path]
 
 Arguments:
   device-ip    IP address (or host) of the target device, as used by adb connect.
+  model        Model to run: qwen2-vl-2b, qwen2-vl-7b, or gemma3-4b.
   remote-path  Directory to push files to on the device (default /data/local/tmp).
 
 Environment:
-  MODEL_SIZE   Qwen2-VL model to download and run: 2b (default) or 7b.
   IMAGE_PATH   Image to use for interactive prompts (default data/cell.png).
 USAGE
   exit 1
 fi
+
+if ! load_model_config "${MODEL}"; then
+  echo "Error: unsupported model '${MODEL}'." >&2
+  echo "Expected one of: qwen2-vl-2b, qwen2-vl-7b, gemma3-4b." >&2
+  exit 1
+fi
+
+MODEL_CACHE="${CACHE_DIR}/${CACHE_NAME}"
 
 # -----------------------------------------------------------------------------
 # Preconditions
@@ -79,27 +119,8 @@ echo "All preconditions satisfied."
 
 echo "=== Model selection ==="
 
-case "${MODEL_SIZE}" in
-  2b)
-    HF_REPO="3ib0n/Qwen2-VL-2B-rkllm"
-    LLM_FILE="Qwen2-VL-2B-Instruct.rkllm"
-    VISION_FILE="qwen2_vl_2b_vision_rk3588.rknn"
-    ;;
-  7b)
-    HF_REPO="3ib0n/Qwen2-VL-7B-rkllm"
-    LLM_FILE="Qwen2-VL-7B-Instruct.rkllm"
-    VISION_FILE="qwen2_vl_7b_vision_rk3588.rknn"
-    ;;
-  *)
-    echo "Error: unsupported MODEL_SIZE '${MODEL_SIZE}' (expected 2b or 7b)." >&2
-    exit 1
-    ;;
-esac
-
-HF_BASE="https://huggingface.co/${HF_REPO}/resolve/main"
-MODEL_CACHE="${CACHE_DIR}/qwen2-vl-${MODEL_SIZE}"
-
-echo "Selected model size: ${MODEL_SIZE}"
+echo "Selected model: ${MODEL}"
+echo "Model family: ${MODEL_FAMILY}"
 echo "LLM file: ${LLM_FILE}"
 echo "Vision file: ${VISION_FILE}"
 
@@ -119,12 +140,21 @@ download() {
     return
   fi
   echo "Downloading ${file} ..."
-  curl -fL --progress-bar -o "${dest}.tmp" "${HF_BASE}/${file}"
+  curl -fL --progress-bar -o "${dest}.tmp" \
+    "https://huggingface.co/${HF_REPO}/resolve/main/${file}"
   mv "${dest}.tmp" "${dest}"
 }
 
-download "${LLM_FILE}"
-download "${VISION_FILE}"
+if [[ "${DOWNLOAD_SOURCE}" == "huggingface" ]]; then
+  download "${LLM_FILE}"
+  download "${VISION_FILE}"
+elif [[ ! -s "${MODEL_CACHE}/${LLM_FILE}" || ! -s "${MODEL_CACHE}/${VISION_FILE}" ]]; then
+  echo "Error: Model artifacts are not available for automatic download." >&2
+  echo "Add the converted model files to the cache directory at:" >&2
+  echo "  LLM:    ${MODEL_CACHE}/${LLM_FILE}" >&2
+  echo "  Vision: ${MODEL_CACHE}/${VISION_FILE}" >&2
+  exit 1
+fi
 
 # -----------------------------------------------------------------------------
 # ADB connect
@@ -156,7 +186,7 @@ ADB=(adb -s "${SERIAL}")
 # Remote paths
 # -----------------------------------------------------------------------------
 
-REMOTE_MODEL_DIR="${REMOTE_DIR}/models/qwen2-vl"
+REMOTE_MODEL_DIR="${REMOTE_DIR}/models/${MODEL}"
 REMOTE_LIB_DIR="${REMOTE_DIR}/lib"
 REMOTE_IMAGE="${REMOTE_DIR}/input-image"
 
@@ -222,4 +252,4 @@ echo "=== Start interactive CLI on ${SERIAL} ==="
 # Omitting --prompt starts vlm-rknn's interactive REPL. Force a pseudo-terminal
 # (-t -t) so prompts and generated output stream live. Merge stderr into stdout
 # so both are shown.
-"${ADB[@]}" shell -t -t "cd ${REMOTE_DIR} && LD_LIBRARY_PATH=${REMOTE_LIB_DIR} ./vlm-rknn --model-family qwen2-vl --vision ${REMOTE_MODEL_DIR}/${VISION_FILE} --llm ${REMOTE_MODEL_DIR}/${LLM_FILE} --image ${REMOTE_IMAGE} 2>&1"
+"${ADB[@]}" shell -t -t "cd ${REMOTE_DIR} && LD_LIBRARY_PATH=${REMOTE_LIB_DIR} ./vlm-rknn --model-family ${MODEL_FAMILY} --vision ${REMOTE_MODEL_DIR}/${VISION_FILE} --llm ${REMOTE_MODEL_DIR}/${LLM_FILE} --image ${REMOTE_IMAGE} 2>&1"
