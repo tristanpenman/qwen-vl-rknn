@@ -992,6 +992,23 @@ int Session::decode(const std::string& prompt, float* imgVec)
         rkllmInput.multimodal_input.image_width = imageWidth;
     }
 
+    if (config_.tokenizerModelPath.has_value()) {
+        std::vector<int> textTokenIds;
+        const auto status = tokenizer_.Encode(prompt, &textTokenIds);
+        if (!status.ok()) {
+            LOG(WARNING) << "Failed to estimate input token count: "
+                         << status.ToString();
+        } else {
+            const std::size_t textTokens = textTokenIds.size();
+            const std::size_t imageTokens = promptContainsImage(prompt)
+                ? static_cast<std::size_t>(encoder_.modelImageToken)
+                : 0;
+            LOG(INFO) << "Estimated input token count: " << textTokens + imageTokens
+                      << " (text=" << textTokens
+                      << ", image=" << imageTokens << ")";
+        }
+    }
+
     int ret = rkllm_run(decoder_.handle, &rkllmInput, &rkllmInferParams, this);
     if (ret != 0) {
         LOG(ERROR) << "Failed to run RKLLM, error=" << ret;
