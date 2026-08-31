@@ -285,22 +285,24 @@ A successful response looks like:
 
 #### Query Script
 
-For convenience, [`scripts/send-query.py`](./scripts/send-query.py) sends a query without hand-building the request. It depends only on the Python standard library.
+For convenience, [`vlm_rknn.send_query`](./python/vlm_rknn/send_query.py) sends a query without hand-building the request. It depends only on the Python standard library. Set `PYTHONPATH` to the repository's `python` directory to run it from a checkout.
 
 ```bash
-./scripts/send-query.py "Tell me a joke."
+PYTHONPATH=python python -m vlm_rknn.send_query "Tell me a joke."
 ```
 
 To include an image, pass `--image`. The script reads the local image, base64-encodes it, and uploads it as `image_data`:
 
 ```bash
-./scripts/send-query.py --image data/cell.png "What is in the image?"
+PYTHONPATH=python python -m vlm_rknn.send_query \
+  --image data/cell.png "What is in the image?"
 ```
 
 When an image is supplied, the `<image>` placeholder is added to the prompt automatically if it is missing. Select a non-default model with `--model-id`, and point at a remote server with `--host` and `--port`:
 
 ```bash
-./scripts/send-query.py --host 192.168.1.50 --model-id qwen2-vl \
+PYTHONPATH=python python -m vlm_rknn.send_query \
+  --host 192.168.1.50 --model-id qwen2-vl \
   --image data/pythagoras.png "Transcribe any text in the image."
 ```
 
@@ -428,7 +430,11 @@ Downloads or locates the selected model artifacts, pushes the Android CLI, runti
 
 Downloads and deploys the Qwen2-VL and SmolVLM2 model artifacts together with the Android server and runtime libraries, then starts the multi-model HTTP server on a connected device.
 
-### `send-query.py`
+## Python
+
+in addition to the bash scripts above, there are also Python scripts.
+
+### `vlm_rknn.send_query`
 
 Sends a text or image query to a running `vlm-rknn-server` instance. Image data is validated, base64-encoded, and included directly in the JSON request.
 

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # Copyright (c) 2026 Tristan Penman
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,9 +21,9 @@ server. The server limits uploads to 1 MB once decoded. When `--image` is
 omitted, the query is sent as a plain text request.
 
 Examples:
-    ./scripts/send-query.py "Tell me a joke."
-    ./scripts/send-query.py --image data/cell.png "What is in the image?"
-    ./scripts/send-query.py --host 192.168.1.50 --model-id qwen2-vl \\
+    python -m vlm_rknn.send_query "Tell me a joke."
+    python -m vlm_rknn.send_query --image data/cell.png "What is in the image?"
+    python -m vlm_rknn.send_query --host 192.168.1.50 --model-id qwen2-vl \\
         --image data/pythagoras.png "Transcribe any text in the image."
 """
 
