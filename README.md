@@ -39,6 +39,8 @@ Others are in development:
   * [SmolVLM2-256M](#smolvlm2-256m)
   * [SmolVLM2-500M](#smolvlm2-500m)
 * [Scripts](#scripts)
+  * [Bash Scripts](#bash-scripts)
+  * [Python Scripts](#python-scripts)
 * [Contributing](#contributing)
 * [License](#license)
 
@@ -414,27 +416,35 @@ Fetch the `smolvlm2_500m_llm_w8a8_rk3588.rkllm` and `smolvlm2_500m_vision_fp16_r
 
 ## Scripts
 
-### `build-android.sh`
+This repo contains a mix of Bash and Python helper scripts. Bash scripts should be fully portable. Python scripts may require some dependencies to be installed.
+
+### Bash Scripts
+
+#### `build-android.sh`
 
 Builds the command-line tools for Android with the Android NDK. It can run the build directly with a locally installed NDK or inside the project's Docker Compose Android build environment.
 
-### `build-native.sh`
+#### `build-native.sh`
 
 Cross-compiles the native Linux command-line tools for AArch64 Rockchip devices. It also supports running the build through the project's Docker Compose native build environment.
 
-### `run-android-cli.sh`
+#### `run-android-cli.sh`
 
 Downloads or locates the selected model artifacts, pushes the Android CLI, runtime libraries, model files, and input image to a connected device, and starts an interactive inference session over ADB.
 
-### `run-android-server.sh`
+#### `run-android-server.sh`
 
 Downloads and deploys the Qwen2-VL and SmolVLM2 model artifacts together with the Android server and runtime libraries, then starts the multi-model HTTP server on a connected device.
 
-## Python
+### Python Scripts
 
-in addition to the bash scripts above, there are also Python scripts.
+In addition to the bash scripts above, there are also Python scripts. Dependencies can be installed using [requirements.txt](./python/requirements.txt).
 
-### `vlm_rknn.send_query`
+#### `vlm_rknn.convert_gemma3`
+
+Converts the original Gemma3 model corresponding to Ollama's `gemma3:4b-it-q8_0`. Avoids unnecessary re-quantization of lossy weights.
+
+#### `vlm_rknn.send_query`
 
 Sends a text or image query to a running `vlm-rknn-server` instance. Image data is validated, base64-encoded, and included directly in the JSON request.
 
