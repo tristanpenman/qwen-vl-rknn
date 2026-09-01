@@ -99,3 +99,92 @@ python -m vlm_rknn.convert_gemma3 \
 ```
 
 Use `--device cuda` only in the GPU container with working CUDA access. Model weights and generated RKLLM files remain subject to their respective model and toolkit license terms.
+
+## Model evaluation
+
+The `vlm_rknn.evaluate_model` module runs a prompt and expected-answer test suite against any model command. It starts the command once per sample, scores its standard output, and records the output, expected answer, standard error, return code, score, and latency.
+
+Create prompt and expected-answer files, then reference them from a JSON manifest. Paths are resolved relative to the manifest:
+
+```text
+evaluation/
+├── manifest.json
+├── prompts/
+│   └── capital.txt
+└── expected/
+    └── capital.txt
+```
+
+```json
+{
+  "samples": [
+    {
+      "id": "capital-of-france",
+      "prompt": "prompts/capital.txt",
+      "expected": "expected/capital.txt",
+      "evaluator": "exact_match"
+    }
+  ]
+}
+```
+
+Pass the manifest and model command to the evaluator. By default, each prompt is sent to the command on standard input:
+
+```bash
+python -m vlm_rknn.evaluate_model evaluation/manifest.json \
+  --command 'ollama run gemma3:4b-it-q8_0'
+```
+
+If the model command expects a file, include `{prompt_file}` in the command. The evaluator replaces it with a temporary UTF-8 prompt file for each sample:
+
+```bash
+python -m vlm_rknn.evaluate_model evaluation/manifest.json \
+  --command './model-runner --prompt-file {prompt_file}'
+```
+
+Each sample may select one of these evaluators:
+
+| Evaluator     | Scoring                                                                |
+|---------------|------------------------------------------------------------------------|
+| `exact_match` | Case-insensitive exact match after normalizing whitespace              |
+| `token_f1`    | F1 score based on overlapping word and punctuation tokens              |
+| `rouge_l`     | F1 score based on the longest common token subsequence                 |
+| `json`        | Parsed JSON equality, or the proportion of matching `required_fields`  |
+
+The default evaluator is `exact_match`. A sample passes when its command exits successfully and its score meets `threshold`. The default threshold is `1.0` for `exact_match` and `json`, and `0.8` for `token_f1` and `rouge_l`.
+
+For JSON output, a sample can restrict comparison to selected fields:
+
+```json
+{
+  "id": "structured-answer",
+  "prompt": "prompts/structured.txt",
+  "expected": "expected/structured.json",
+  "evaluator": "json",
+  "required_fields": ["answer", "units"],
+  "threshold": 1.0
+}
+```
+
+### Evaluation options
+
+| Option             | Default              | Description                                                       |
+|--------------------|----------------------|-------------------------------------------------------------------|
+| `--command`        | required             | Model command; reads standard input or uses `{prompt_file}`       |
+| `--output-dir`     | `evaluation-results` | Directory for `report.json` and `report.md`                       |
+| `--timeout`        | `120`                | Per-sample timeout in seconds                                     |
+| `--min-pass-rate`  | `0.0`                | Required overall pass rate from `0` to `1`                        |
+| `--min-mean-score` | `0.0`                | Required overall mean score from `0` to `1`                       |
+
+Overall thresholds can make an evaluation fail when model quality falls below an acceptable level:
+
+```bash
+python -m vlm_rknn.evaluate_model evaluation/manifest.json \
+  --command 'ollama run gemma3:4b-it-q8_0' \
+  --timeout 300 \
+  --min-pass-rate 0.9 \
+  --min-mean-score 0.85 \
+  --output-dir evaluation-results/gemma3
+```
+
+The command exits with status `0` when both overall thresholds are met, `1` when either threshold is missed, and `2` for invalid input or setup errors. A timed-out sample is recorded as failed with return code `124`; any other non-zero model return code also fails the sample.

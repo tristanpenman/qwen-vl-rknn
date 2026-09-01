@@ -444,6 +444,10 @@ In addition to the bash scripts above, there are also Python scripts. Dependenci
 
 Converts the original Gemma3 model corresponding to Ollama's `gemma3:4b-it-q8_0`. Avoids unnecessary re-quantization of lossy weights.
 
+#### `vlm_rknn.evaluate_model`
+
+Runs a prompt and expected-answer test suite against an arbitrary model command. It supports exact-match, token F1, ROUGE-L, and JSON scoring, and writes JSON and Markdown reports. See the [Python README](./python/README.md#model-evaluation) for the manifest format and usage.
+
 #### `vlm_rknn.send_query`
 
 Sends a text or image query to a running `vlm-rknn-server` instance. Image data is validated, base64-encoded, and included directly in the JSON request.
