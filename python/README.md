@@ -47,6 +47,15 @@ hf auth login
 
 The containers bind-mount the repository at `/workspace`. Ollama models, Hugging Face downloads, and RKLLM scratch files are stored beneath `/workspace/.cache`, which corresponds to the repository's `.cache` directory.
 
+## RKLLM Toolkit versions
+
+Two RKLLM Toolkit wheels are included in [`python/wheels`](./wheels):
+
+- `rkllm_toolkit-1.3.0-cp311-cp311-linux_x86_64.whl`
+- `rkllm_toolkit-1.2.3-cp311-cp311-linux_x86_64.whl`
+
+The Python images install version 1.3.0 by default. To use version 1.2.3 instead, edit [`requirements.txt`](./requirements.txt) so its RKLLM Toolkit entry points to `/opt/wheels/rkllm_toolkit-1.2.3-cp311-cp311-linux_x86_64.whl`, then rebuild the selected Python image.
+
 ## Usage
 
 Run the converter from either Python container:

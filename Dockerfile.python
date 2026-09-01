@@ -24,7 +24,7 @@ ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 ENV PYTHONPATH=/workspace/python
 
-COPY wheels /opt/wheels
+COPY python/wheels /opt/wheels
 COPY python/requirements.txt /tmp/requirements.txt
 
 RUN python -m venv "$VIRTUAL_ENV" \
