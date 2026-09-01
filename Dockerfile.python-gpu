@@ -1,0 +1,49 @@
+# check=skip=FromPlatformFlagConstDisallowed
+
+FROM --platform=linux/amd64 python:3.11-slim
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PIP_NO_CACHE_DIR=1 \
+    XDG_CACHE_HOME=/workspace/.cache \
+    HF_HOME=/workspace/.cache/huggingface \
+    OLLAMA_MODELS=/workspace/.cache/ollama/models \
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends \
+        curl \
+        gosu \
+        libgl1 \
+        libglib2.0-0 \
+        zstd \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+ENV VIRTUAL_ENV=/opt/venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+ENV PYTHONPATH=/workspace/python
+
+COPY wheels /opt/wheels
+COPY python/requirements.txt /tmp/requirements.txt
+
+RUN python -m venv "$VIRTUAL_ENV" \
+    && python -m pip install --upgrade pip \
+    && python -m pip install "setuptools<81" \
+    && python -m pip install \
+        torch==2.6.0 \
+        torchvision==0.21.0 \
+        --index-url https://download.pytorch.org/whl/cu126 \
+    && python -m pip install --no-build-isolation --no-cache-dir -r /tmp/requirements.txt \
+    && rm /tmp/requirements.txt
+
+RUN curl -fsSL https://ollama.com/install.sh | sh
+
+COPY scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+
+CMD ["/bin/bash"]
