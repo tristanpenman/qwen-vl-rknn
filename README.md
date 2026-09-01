@@ -456,6 +456,8 @@ You are also welcome to raise GitHub issues against this repo, however please no
 
 ## License
 
-This code is released under the Apache License 2.0.
+Except for the third-party components described below, this project is licensed under the Apache License 2.0.
 
-See the [LICENSE](./LICENSE) file for more information.
+The RKLLM Toolkit wheel under wheels/ is third-party software owned by Rockchip and is subject to Rockchip's applicable license terms. It is not licensed under the Apache License 2.0.
+
+Model weights downloaded by these utilities are not part of this project and remain subject to their respective model licenses, including the Gemma Terms of Use for Gemma models.
