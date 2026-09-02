@@ -152,6 +152,9 @@ public:
     // Run the text decoder; results are delivered via the RKLLM callback.
     int decode(const std::string& prompt, float* imgVec);
 
+    // Run the text decoder once and save the prompt's reusable RKLLM cache.
+    int generatePromptCache(const std::string& prompt, const std::string& outputPath);
+
 private:
     static int callback(RKLLMResult* result, void* userdata, LLMCallState state);
 

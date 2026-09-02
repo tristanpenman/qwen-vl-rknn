@@ -206,6 +206,24 @@ target_link_options(vlm-rknn PRIVATE
 )
 
 # -----------------------------------------------------------------------------
+# vlm-rknn-cache
+# -----------------------------------------------------------------------------
+
+add_executable(vlm-rknn-cache
+    cpp/src/cache.cc
+)
+
+set_target_properties(vlm-rknn-cache PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+)
+
+target_link_libraries(vlm-rknn-cache PRIVATE vlm-rknn::core)
+
+target_link_options(vlm-rknn-cache PRIVATE
+    $<$<CONFIG:Release>:-Wl,--strip-all>
+)
+
+# -----------------------------------------------------------------------------
 # vlm-rknn-server
 # -----------------------------------------------------------------------------
 

@@ -1018,6 +1018,44 @@ int Session::decode(const std::string& prompt, float* imgVec)
     return 0;
 }
 
+int Session::generatePromptCache(const std::string& prompt, const std::string& outputPath)
+{
+    if (decoder_.handle == nullptr) {
+        LOG(ERROR) << "Cannot generate a prompt cache before the text decoder is initialized";
+        return -1;
+    }
+    if (prompt.empty()) {
+        LOG(ERROR) << "Cannot generate a prompt cache from an empty prompt";
+        return -1;
+    }
+    if (outputPath.empty()) {
+        LOG(ERROR) << "Cannot generate a prompt cache without an output path";
+        return -1;
+    }
+
+    RKLLMInput input {};
+    input.input_type = RKLLM_INPUT_PROMPT;
+    input.role = "user";
+    input.prompt_input = prompt.c_str();
+
+    RKLLMPromptCacheParam cacheParams {};
+    cacheParams.save_prompt_cache = 1;
+    cacheParams.prompt_cache_path = outputPath.c_str();
+
+    RKLLMInferParam inferParams {};
+    inferParams.mode = RKLLM_INFER_GENERATE;
+    inferParams.prompt_cache_params = &cacheParams;
+    inferParams.keep_history = 0;
+
+    const int ret = rkllm_run(decoder_.handle, &input, &inferParams, this);
+    if (ret != 0) {
+        LOG(ERROR) << "Failed to generate RKLLM prompt cache, error=" << ret;
+        return ret;
+    }
+
+    return 0;
+}
+
 int Session::callback(RKLLMResult* result, void* userdata, LLMCallState state)
 {
     Session* session = static_cast<Session*>(userdata);
