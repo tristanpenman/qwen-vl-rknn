@@ -37,6 +37,7 @@ void printUsage(const char* program)
               << " [--max-new-tokens <tokens>] [--max-context-len <tokens>]"
               << " [--tokenizer-model <tokenizer.model>]"
               << " --llm <language_model_path>"
+              << " [--cache <prompt_cache_path>]"
               << " [--vision <vision_encoder_path> --image <image_path>]"
               << " [--prompt <prompt>]\n";
     std::cout << "--vision and --image must be provided together for multimodal inference; "
@@ -82,6 +83,7 @@ int main(int argc, char** argv)
     std::optional<std::string> visionEncoderPath;
     std::optional<std::string> languageModelPath;
     std::optional<std::string> tokenizerModelPath;
+    std::optional<std::string> cachePath;
     std::optional<std::string> imagePath;
     std::optional<std::string> prompt;
     for (int i = 1; i < argc; i++) {
@@ -169,6 +171,14 @@ int main(int argc, char** argv)
             tokenizerModelPath = value;
             continue;
         }
+        if (strcmp(argv[i], "--cache") == 0) {
+            const char* value = nullptr;
+            if (!getOptionValue(argc, argv, i, "--cache", value)) {
+                return -1;
+            }
+            cachePath = value;
+            continue;
+        }
         if (strcmp(argv[i], "--image") == 0) {
             const char* value = nullptr;
             if (!getOptionValue(argc, argv, i, "--image", value)) {
@@ -198,6 +208,11 @@ int main(int argc, char** argv)
     }
     if (tokenizerModelPath.has_value() && tokenizerModelPath->empty()) {
         std::cout << "--tokenizer-model requires a non-empty path\n";
+        printUsage(argv[0]);
+        return 1;
+    }
+    if (cachePath.has_value() && cachePath->empty()) {
+        std::cout << "--cache requires a non-empty path\n";
         printUsage(argv[0]);
         return 1;
     }
@@ -257,6 +272,11 @@ int main(int argc, char** argv)
 
     if (!session.isReady()) {
         LOG(ERROR) << "Session is not ready. Something went wrong.";
+        return -1;
+    }
+
+    if (cachePath.has_value() && session.loadPromptCache(*cachePath) != 0) {
+        LOG(ERROR) << "Prompt cache loading failed.";
         return -1;
     }
 

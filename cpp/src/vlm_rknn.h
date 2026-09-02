@@ -155,6 +155,9 @@ public:
     // Run the text decoder once and save the prompt's reusable RKLLM cache.
     int generatePromptCache(const std::string& prompt, const std::string& outputPath);
 
+    // Load a previously generated RKLLM prompt cache for subsequent decoding.
+    int loadPromptCache(const std::string& cachePath);
+
 private:
     static int callback(RKLLMResult* result, void* userdata, LLMCallState state);
 

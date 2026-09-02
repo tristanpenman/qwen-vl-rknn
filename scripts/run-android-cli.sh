@@ -14,6 +14,8 @@ set -euo pipefail
 #
 # Environment:
 #   IMAGE_PATH   Image to use for interactive prompts (default data/cell.png).
+#   RKLLM_CACHE  Optional RKLLM prompt cache to load at startup
+#                (example: <remote-path>/models/<model>/prompt.cache).
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -60,6 +62,8 @@ load_model_config() {
 DEVICE_IP="${1:-}"
 MODEL="${2:-}"
 REMOTE_DIR="${3:-/data/local/tmp}"
+REMOTE_MODEL_DIR="${REMOTE_DIR}/models/${MODEL}"
+RKLLM_CACHE="${RKLLM_CACHE:-${REMOTE_MODEL_DIR}/prompt.cache}"
 
 if [[ -z "${DEVICE_IP}" || -z "${MODEL}" ]]; then
   cat <<USAGE
@@ -72,6 +76,8 @@ Arguments:
 
 Environment:
   IMAGE_PATH   Image to use for interactive prompts (default data/cell.png).
+  RKLLM_CACHE  Optional RKLLM prompt cache path on the ADB device
+               (default <remote-path>/models/<model>/prompt.cache).
 USAGE
   exit 1
 fi
@@ -289,4 +295,11 @@ TOKENIZER_ARGS=""
 if [[ "${USE_TOKENIZER}" -eq 1 ]]; then
   TOKENIZER_ARGS=" --tokenizer-model ${REMOTE_MODEL_DIR}/${TOKENIZER_FILE}"
 fi
-"${ADB[@]}" shell -t -t "cd ${REMOTE_DIR} && LD_LIBRARY_PATH=${REMOTE_LIB_DIR} ./vlm-rknn --model-family ${MODEL_FAMILY} --llm ${REMOTE_MODEL_DIR}/${LLM_FILE}${VISION_ARGS}${TOKENIZER_ARGS} 2>&1"
+CACHE_ARGS=""
+if "${ADB[@]}" shell "test -f '${RKLLM_CACHE}'"; then
+  echo "Prompt cache found: ${RKLLM_CACHE}"
+  CACHE_ARGS=" --cache ${RKLLM_CACHE}"
+else
+  echo "No cache file found at ${RKLLM_CACHE}; starting without a prompt cache."
+fi
+"${ADB[@]}" shell -t -t "cd ${REMOTE_DIR} && LD_LIBRARY_PATH=${REMOTE_LIB_DIR} ./vlm-rknn --model-family ${MODEL_FAMILY} --llm ${REMOTE_MODEL_DIR}/${LLM_FILE}${VISION_ARGS}${TOKENIZER_ARGS}${CACHE_ARGS} 2>&1"

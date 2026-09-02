@@ -624,6 +624,7 @@ int Session::initVisionEncoder()
             cleanupOnFailure();
             return -1;
         }
+
         if (encoder_.modelImageToken != profile.expectedImageTokens) {
             LOG(ERROR) << modelFamilyName(config_.modelFamily) << " requires "
                        << profile.expectedImageTokens << " image tokens; RKNN output has "
@@ -642,6 +643,7 @@ int Session::initVisionEncoder()
         encoder_.modelWidth = encoder_.inputAttrs[0].dims[2];
         encoder_.modelChannel = encoder_.inputAttrs[0].dims[3];
     }
+
     if (config_.modelFamily == ModelFamily::kGemma3 &&
         (encoder_.modelWidth != 896 || encoder_.modelHeight != 896 || encoder_.modelChannel != 3)) {
         LOG(ERROR) << "Gemma 3 RKNN input must be 896x896 RGB; got "
@@ -650,6 +652,7 @@ int Session::initVisionEncoder()
         cleanupOnFailure();
         return -1;
     }
+
     if (Logger::verbose()) {
         LOG(VERBOSE) << "RKNN vision input shape: height=" << encoder_.modelHeight
                      << " width=" << encoder_.modelWidth
@@ -907,6 +910,7 @@ int Session::encode(void* imgData, float* outResult)
                 ret = -1;
                 break;
             }
+
             if (outputTokens != encoder_.modelImageToken ||
                 outputEmbedSize != encoder_.modelEmbedSize) {
                 LOG(ERROR) << "Unsupported RKNN output shape at index " << i
@@ -917,6 +921,7 @@ int Session::encode(void* imgData, float* outResult)
                 ret = -1;
                 break;
             }
+
             if (outputs[i].buf == nullptr) {
                 LOG(ERROR) << "RKNN output buffer is null for index " << i;
                 ret = -1;
@@ -1024,10 +1029,12 @@ int Session::generatePromptCache(const std::string& prompt, const std::string& o
         LOG(ERROR) << "Cannot generate a prompt cache before the text decoder is initialized";
         return -1;
     }
+
     if (prompt.empty()) {
         LOG(ERROR) << "Cannot generate a prompt cache from an empty prompt";
         return -1;
     }
+
     if (outputPath.empty()) {
         LOG(ERROR) << "Cannot generate a prompt cache without an output path";
         return -1;
@@ -1053,6 +1060,29 @@ int Session::generatePromptCache(const std::string& prompt, const std::string& o
         return ret;
     }
 
+    return 0;
+}
+
+int Session::loadPromptCache(const std::string& cachePath)
+{
+    if (decoder_.handle == nullptr) {
+        LOG(ERROR) << "Cannot load a prompt cache before the text decoder is initialized";
+        return -1;
+    }
+
+    if (cachePath.empty()) {
+        LOG(ERROR) << "Cannot load a prompt cache without a path";
+        return -1;
+    }
+
+    const int ret = rkllm_load_prompt_cache(decoder_.handle, cachePath.c_str());
+    if (ret != 0) {
+        LOG(ERROR) << "Failed to load RKLLM prompt cache from " << cachePath
+                   << ", error=" << ret;
+        return ret;
+    }
+
+    LOG(INFO) << "Loaded RKLLM prompt cache from " << cachePath;
     return 0;
 }
 
